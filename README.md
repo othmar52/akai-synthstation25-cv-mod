@@ -1,5 +1,5 @@
-# AKAI Synthstaion 25 CV MOD for eurorack
-How to modify the tiny [AKAI Synthstaion 25 keyboard](https://www.akaipro.com/synthstation25) for usage in eurorack/control voltage.  
+# AKAI Synthstation 25 CV MOD for eurorack
+How to modify the tiny [AKAI Synthstation 25 keyboard](https://www.akaipro.com/synthstation25) for usage in eurorack/control voltage.  
 
 
 
