@@ -7,6 +7,21 @@
 
 #include <Keypad.h>
 
+// include the SPI library:
+#include <SPI.h>
+
+
+#define GATE_PIN 9 //gate control
+#define SLAVE_SELECT_PIN 10 //spi chip select
+
+#define DAC_BASE -3000 //-3V offset 
+#define DAC_SCALE_PER_SEMITONE 83.333333333
+#define GATE_RETRIGGER_DELAY_US 100 //time in microseconds to turn gate off in order to retrigger envelope
+
+//MIDI variables
+int currentMidiNote; //the note currently being played
+int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
+
 const byte ROWS = 4; //four rows
 const byte COLS = 7; //three columns
 /*
@@ -56,6 +71,18 @@ String msg;
 void setup() {
   Serial.begin(9600);
   msg = "";
+
+  //SPI stuff
+  // set the slaveSelectPin as an output:
+  pinMode (SLAVE_SELECT_PIN, OUTPUT);
+  digitalWrite(SLAVE_SELECT_PIN,HIGH); //set chip select high
+  // initialize SPI:
+  SPI.begin(); 
+  //Serial.begin(9600); //for debug, can't use midi at the same time!
+  pinMode (GATE_PIN, OUTPUT); //gate for monotron
+  digitalWrite(GATE_PIN,LOW); //turn note off
+  //dacWrite(1000); //set the pitch just for testing
+  
 }
 
 void loop() {
@@ -79,16 +106,87 @@ void loopKeyPadRead() {
       case IDLE:
         continue;
       case PRESSED:
-        msg = " PRESSED.";
+        handleNoteOn((kpd.key[i].kchar - '0') + 48);
         break;
 
       case RELEASED:
-        msg = " RELEASED.";
+        handleNoteOff((kpd.key[i].kchar - '0') + 48);
         break;
     }
-    Serial.print("Key ");
-    Serial.print((kpd.key[i].kchar - '0') + 48);
-    //Serial.print(kpd.key[i].kchar);
-    Serial.println(msg);
   }
+}
+
+void dacWrite(int value) {
+  //write a 12 bit number to the MCP8421 DAC
+  if ((value < 0) || (value > 4095)) {
+    value = 0;
+  }
+  // take the SS pin low to select the chip:
+  digitalWrite(SLAVE_SELECT_PIN,LOW);
+  //send a value to the DAC
+  SPI.transfer(0x10 | ((value >> 8) & 0x0F)); //bits 0..3 are bits 8..11 of 12 bit value, bits 4..7 are control data 
+  SPI.transfer(value & 0xFF); //bits 0..7 of 12 bit value
+  // take the SS pin high to de-select the chip:
+  digitalWrite(SLAVE_SELECT_PIN,HIGH); 
+}
+
+
+void setNotePitch(int note) {
+  //receive a midi note number and set the DAC voltage accordingly for the pitch CV
+  dacWrite(DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)); //set the pitch of the oscillator
+}
+
+
+void handleNoteOn(byte pitch) { 
+  // this function is called automatically when a note on message is received 
+  keysPressedArray[pitch] = 1;
+  synthNoteOn(pitch);
+}
+
+void handleNoteOff(byte pitch)
+{
+  keysPressedArray[pitch] = 0; //update the array holding the keys pressed 
+  if (pitch == currentMidiNote) {
+    //only act if the note released is the one currently playing, otherwise ignore it
+    int highestKeyPressed = findHighestKeyPressed(); //search the array to find the highest key pressed, will return -1 if no keys pressed
+    if (highestKeyPressed != -1) { 
+      //there is another key pressed somewhere, so the note off becomes a note on for the highest note pressed
+      synthNoteOn(highestKeyPressed);
+    }    
+    else  {
+      //there are no other keys pressed so proper note off
+      synthNoteOff(pitch);
+    }
+  }  
+}
+
+int findHighestKeyPressed(void) {
+  //search the array to find the highest key pressed. Return -1 if no keys are pressed
+  int highestKeyPressed = -1; 
+  for (int count = 0; count < 127; count++) {
+    //go through the array holding the keys pressed to find which is the highest (highest note has priority), and to find out if no keys are pressed
+    if (keysPressedArray[count] == 1) {
+      highestKeyPressed = count; //find the highest one
+    }
+  }
+  return(highestKeyPressed);
+}
+
+void synthNoteOn(int note) {
+  Serial.print("Key ");
+  Serial.print(note);
+  Serial.println(" ON");
+  //starts playback of a note
+  setNotePitch(note); //set the oscillator pitch
+  digitalWrite(GATE_PIN, LOW); //turn gate off momentarily to retrigger LFO
+  delayMicroseconds(GATE_RETRIGGER_DELAY_US); //should not do delays here really but get away with this which seems to be the minimum a montotron needs (may be different for other synths)
+  digitalWrite(GATE_PIN,HIGH); //turn gate on
+  currentMidiNote = note; //store the current note
+}
+
+void synthNoteOff(int note) {
+  Serial.print("Key ");
+  Serial.print(note);
+  Serial.println(" OFF");
+  digitalWrite(GATE_PIN, LOW); //turn gate off
 }
