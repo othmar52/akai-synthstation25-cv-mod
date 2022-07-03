@@ -31,7 +31,7 @@ for sending pitch CV. (thanks to https://github.com/petegaggs/MIDI-to-CV/blob/ma
  to MCP4821 pin 6 (SHDN) <- -| 1 VDD  VOUT 8 |- -> 100 R -> PITCH CV JACK
    to Arduino Uno pin 10 <- -| 2 CS    VSS 7 |- -> GND
    to Arduino Uno pin 13 <- -| 3 SCK  SHDN 6 |- -> 5V (with 10 uF cap to GND)
-   to Arduino Uno pin 12 <- -| 4 SDI  LDAC 5 |- -> GND
+   to Arduino Uno pin 11 <- -| 4 SDI  LDAC 5 |- -> GND
                              |_______________|
 
 ```
