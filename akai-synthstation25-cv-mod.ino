@@ -11,6 +11,14 @@
 #include <SPI.h>
 
 
+#define PITCH_BEND_PIN A0 // pitch bend potentiometer
+#define PITCH_BEND_CENTER 512
+#define PITCH_BEND_UPPER 670
+#define PITCH_BEND_LOWER 360
+#define PITCH_BEND_SEMITONE_RANGE 12 // in each direction
+#define POT_FUZZY 6
+
+
 #define GATE_PIN 9 //gate control
 #define SLAVE_SELECT_PIN 10 //spi chip select
 
@@ -74,6 +82,8 @@ void setup() {
 
   //SPI stuff
   // set the slaveSelectPin as an output:
+  
+  // pinMode (PICH_BEND_PIN, INPUT);
   pinMode (SLAVE_SELECT_PIN, OUTPUT);
   digitalWrite(SLAVE_SELECT_PIN,HIGH); //set chip select high
   // initialize SPI:
@@ -87,6 +97,40 @@ void setup() {
 
 void loop() {
   loopKeyPadRead();
+  setNotePitch(currentMidiNote);
+}
+
+/*
+ * 
+ * #define PITCH_BEND_CENTER 512
+#define PITCH_BEND_UPPER 670
+#define PITCH_BEND_LOWER 360
+#define PITCH_BEND_SEMITONE_RANGE 12 // in each direction
+
+
+ */
+float getPitchbendOffset() {
+  int potVal = analogRead(PITCH_BEND_PIN);
+  float percent = 0.;
+  if (potVal > PITCH_BEND_CENTER - POT_FUZZY && potVal < PITCH_BEND_CENTER + POT_FUZZY) {
+    return percent;
+  }
+  if (potVal < PITCH_BEND_CENTER) {
+    if (potVal < PITCH_BEND_LOWER + POT_FUZZY) {
+      potVal = PITCH_BEND_LOWER + POT_FUZZY;
+    }
+    percent = map(potVal, PITCH_BEND_LOWER + POT_FUZZY, PITCH_BEND_CENTER - POT_FUZZY, -100, 0);
+    //Serial.println("pitch down");
+  } else {
+    if (potVal > PITCH_BEND_UPPER - POT_FUZZY) {
+      potVal = PITCH_BEND_UPPER - POT_FUZZY;
+    }
+    percent = map(potVal, PITCH_BEND_CENTER + POT_FUZZY, PITCH_BEND_UPPER - POT_FUZZY, 0, 100);
+    //Serial.println("pitch up");
+  }
+  percent = percent * (DAC_SCALE_PER_SEMITONE*PITCH_BEND_SEMITONE_RANGE/100);
+  //Serial.println(percent);
+  return percent;
 }
 
 void loopKeyPadRead() {
@@ -133,7 +177,7 @@ void dacWrite(int value) {
 
 void setNotePitch(int note) {
   //receive a midi note number and set the DAC voltage accordingly for the pitch CV
-  dacWrite(DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)); //set the pitch of the oscillator
+  dacWrite(DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffset()); //set the pitch of the oscillator
 }
 
 
