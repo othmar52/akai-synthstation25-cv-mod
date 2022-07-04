@@ -6,6 +6,7 @@
 */
 
 #include <Keypad.h>
+#include <MIDI.h>
 
 // include the SPI library:
 #include <SPI.h>
@@ -18,6 +19,7 @@
 #define PITCH_BEND_SEMITONE_RANGE 12 // in each direction
 #define POT_FUZZY 6
 
+#define MIDI_CHANNEL 1 // the midi channel to send to
 
 #define GATE_LED_PIN 12 //gate indicator
 #define GATE_PIN 9 //gate control
@@ -27,6 +29,9 @@
 #define DAC_SCALE_PER_SEMITONE 83.333333333
 #define GATE_RETRIGGER_DELAY_US 100 //time in microseconds to turn gate off in order to retrigger envelope
 
+MIDI_CREATE_DEFAULT_INSTANCE();
+
+
 //MIDI variables
 int currentOctave;
 int currentMidiNote; //the note currently being played
@@ -34,7 +39,7 @@ int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
 
 int lastSendPitch = 0;
 
-
+int lastSendMidiPitchBend;
 /*
  * -----------------------------------------------------------
  *                       note numbers
@@ -83,7 +88,8 @@ String msg;
 
 
 void setup() {
-  Serial.begin(9600);
+  //Serial.begin(9600);
+  Serial.begin(31250); // MIDI baudrate
   msg = "";
 
   //SPI stuff
@@ -109,6 +115,17 @@ void loop() {
 }
 
 float getOctaveOffset() {
+
+  int newOctave = getActiveOctave();
+  if (currentOctave != newOctave) {
+    //Serial.print("new octave = ");
+    //Serial.println(newOctave);
+    currentOctave = newOctave;
+  }
+  return DAC_SCALE_PER_SEMITONE * currentOctave * 12;
+}
+
+int getActiveOctave() {
   int maxOctaves = 2; // 2 up, 2 down
   int potVal = analogRead(OCTAVE_PIN);
   int newOctave = 0;
@@ -122,18 +139,23 @@ float getOctaveOffset() {
       newOctave = (i+1);
     }
   }
-  if (currentOctave != newOctave) {
-    Serial.print("new octave = ");
-    Serial.println(newOctave);
-    currentOctave = newOctave;
+  return newOctave;
+}
+
+void sendMidiPitchBend(int pitchValue) {
+  if (lastSendMidiPitchBend == pitchValue) {
+    return;  
   }
-  return DAC_SCALE_PER_SEMITONE * currentOctave * 12;
+  MIDI.sendPitchBend(pitchValue, MIDI_CHANNEL);
+  lastSendMidiPitchBend = pitchValue;
 }
 
 float getPitchbendOffset() {
   int potVal = analogRead(PITCH_BEND_PIN);
+  int midiPitchBendVal = 64;
   float percent = 0.;
   if (potVal > PITCH_BEND_CENTER - POT_FUZZY && potVal < PITCH_BEND_CENTER + POT_FUZZY) {
+    sendMidiPitchBend(midiPitchBendVal);
     return percent;
   }
   if (potVal < PITCH_BEND_CENTER) {
@@ -141,16 +163,19 @@ float getPitchbendOffset() {
       potVal = PITCH_BEND_LOWER + POT_FUZZY;
     }
     percent = map(potVal, PITCH_BEND_LOWER + POT_FUZZY, PITCH_BEND_CENTER - POT_FUZZY, -100, 0);
-    //Serial.println("pitch down");
+    midiPitchBendVal = map(potVal, PITCH_BEND_LOWER + POT_FUZZY, PITCH_BEND_CENTER - POT_FUZZY, 0, 63);
+    ////Serial.println("pitch down");
   } else {
     if (potVal > PITCH_BEND_UPPER - POT_FUZZY) {
       potVal = PITCH_BEND_UPPER - POT_FUZZY;
     }
     percent = map(potVal, PITCH_BEND_CENTER + POT_FUZZY, PITCH_BEND_UPPER - POT_FUZZY, 0, 100);
-    //Serial.println("pitch up");
+    midiPitchBendVal = map(potVal, PITCH_BEND_CENTER + POT_FUZZY, PITCH_BEND_UPPER - POT_FUZZY, 65, 127);
+    ////Serial.println("pitch up");
   }
+  sendMidiPitchBend(midiPitchBendVal);
   percent = percent * (DAC_SCALE_PER_SEMITONE*PITCH_BEND_SEMITONE_RANGE/100);
-  //Serial.println(percent);
+  ////Serial.println(percent);
   return percent;
 }
 
@@ -193,8 +218,8 @@ void dacWrite(int value) {
     // no need to write same value again
     return;
   }
-  Serial.print("new pitch value = ");
-  Serial.println(value);
+  //Serial.print("new pitch value = ");
+  //Serial.println(value);
   lastSendPitch = value;
   
   // take the SS pin low to select the chip:
@@ -217,6 +242,7 @@ void handleNoteOn(byte pitch) {
   // this function is called automatically when a note on message is received 
   keysPressedArray[pitch] = 1;
   synthNoteOn(pitch);
+  MIDI.sendNoteOn(pitch + currentOctave * 12, 127, MIDI_CHANNEL);
 }
 
 void handleNoteOff(byte pitch)
@@ -233,7 +259,8 @@ void handleNoteOff(byte pitch)
       //there are no other keys pressed so proper note off
       synthNoteOff(pitch);
     }
-  }  
+  } 
+  MIDI.sendNoteOff(pitch + currentOctave * 12, 0, MIDI_CHANNEL); 
 }
 
 int findHighestKeyPressed(void) {
@@ -249,9 +276,9 @@ int findHighestKeyPressed(void) {
 }
 
 void synthNoteOn(int note) {
-  Serial.print("Key ");
-  Serial.print(note);
-  Serial.println(" ON");
+  //Serial.print("Key ");
+  //Serial.print(note);
+  //Serial.println(" ON");
   //starts playback of a note
   setNotePitch(note); //set the oscillator pitch
   digitalWrite(GATE_PIN, LOW); //turn gate off momentarily to retrigger LFO
@@ -259,12 +286,16 @@ void synthNoteOn(int note) {
   digitalWrite(GATE_PIN,HIGH); //turn gate on
   digitalWrite(GATE_LED_PIN,HIGH);
   currentMidiNote = note; //store the current note
+
+  //Serial.print("pitch ");
+  //Serial.println(note + currentOctave * 12);
+  
 }
 
 void synthNoteOff(int note) {
-  Serial.print("Key ");
-  Serial.print(note);
-  Serial.println(" OFF");
+  //Serial.print("Key ");
+  //Serial.print(note);
+  //Serial.println(" OFF");
   digitalWrite(GATE_PIN, LOW); //turn gate off
   digitalWrite(GATE_LED_PIN,LOW);
 }
