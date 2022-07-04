@@ -10,7 +10,7 @@
 // include the SPI library:
 #include <SPI.h>
 
-
+#define OCTAVE_PIN A5
 #define PITCH_BEND_PIN A0 // pitch bend potentiometer
 #define PITCH_BEND_CENTER 512
 #define PITCH_BEND_UPPER 670
@@ -27,8 +27,12 @@
 #define GATE_RETRIGGER_DELAY_US 100 //time in microseconds to turn gate off in order to retrigger envelope
 
 //MIDI variables
+int currentOctave;
 int currentMidiNote; //the note currently being played
 int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
+
+int lastSendPitch = 0;
+
 
 const byte ROWS = 4; //four rows
 const byte COLS = 7; //three columns
@@ -53,11 +57,11 @@ const byte COLS = 7; //three columns
 
 /*
 
-Arduino SPI pins
-10: CS/SS
-11: MOSI (data output)  <- pretty sure we have to use this one
+Arduino Uno SPI pins
+10: CS/SS               <- we have to use this one for the MCP4821 CS/SS pin
+11: MOSI (data output)  <- we have to use this one for the MCP4821 SDI pin
 12: MISO (data input)
-13: CLOCK
+13: CLOCK               <- we have to use this one for the MCP4821 SCK pin
 
 */                                        
  
@@ -100,15 +104,28 @@ void loop() {
   setNotePitch(currentMidiNote);
 }
 
-/*
- * 
- * #define PITCH_BEND_CENTER 512
-#define PITCH_BEND_UPPER 670
-#define PITCH_BEND_LOWER 360
-#define PITCH_BEND_SEMITONE_RANGE 12 // in each direction
+float getOctaveOffset() {
+  int maxOctaves = 2; // 2 up, 2 down
+  int potVal = analogRead(OCTAVE_PIN);
+  int newOctave = 0;
 
+  int distance = 1024 / (2 * maxOctaves + 1);
+  for (int i = 0; i < maxOctaves; i++) {
+    if (potVal < 512 - (i+1) * distance && newOctave != (i+1) * -1) {
+      newOctave = (i+1) * -1;
+    }
+    if (potVal > 512 + (i+1) * distance && newOctave != (i+1)) {
+      newOctave = (i+1);
+    }
+  }
+  if (currentOctave != newOctave) {
+    Serial.print("new octave = ");
+    Serial.println(newOctave);
+    currentOctave = newOctave;
+  }
+  return DAC_SCALE_PER_SEMITONE * currentOctave * 12;
+}
 
- */
 float getPitchbendOffset() {
   int potVal = analogRead(PITCH_BEND_PIN);
   float percent = 0.;
@@ -162,9 +179,20 @@ void loopKeyPadRead() {
 
 void dacWrite(int value) {
   //write a 12 bit number to the MCP8421 DAC
-  if ((value < 0) || (value > 4095)) {
+  if (value < 0) {
     value = 0;
   }
+  if (value > 4095) {
+    value = 4095;
+  }
+  if (lastSendPitch == value) {
+    // no need to write same value again
+    return;
+  }
+  Serial.print("new pitch value = ");
+  Serial.println(value);
+  lastSendPitch = value;
+  
   // take the SS pin low to select the chip:
   digitalWrite(SLAVE_SELECT_PIN,LOW);
   //send a value to the DAC
@@ -177,7 +205,7 @@ void dacWrite(int value) {
 
 void setNotePitch(int note) {
   //receive a midi note number and set the DAC voltage accordingly for the pitch CV
-  dacWrite(DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffset()); //set the pitch of the oscillator
+  dacWrite(DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffset() + getOctaveOffset()); //set the pitch of the oscillator
 }
 
 
