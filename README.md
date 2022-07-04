@@ -36,3 +36,7 @@ for sending pitch CV. (thanks to https://github.com/petegaggs/MIDI-to-CV/blob/ma
                              |_______________|
 
 ```
+
+
+see my other [eurorack DIY projects](https://github.com/othmar52/eurorack)  
+
