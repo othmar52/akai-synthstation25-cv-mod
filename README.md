@@ -36,7 +36,11 @@ for sending pitch CV. (thanks to https://github.com/petegaggs/MIDI-to-CV/blob/ma
                              |_______________|
 
 ```
-
+## Gate indicator LED
+```
+short leg -> Arduino Uno GND
+ long leg -> resistor 220 R -> Arduino Uno pin 12
+```
 
 see my other [eurorack DIY projects](https://github.com/othmar52/eurorack)  
 
