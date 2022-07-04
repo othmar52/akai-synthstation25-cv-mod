@@ -19,6 +19,7 @@
 #define POT_FUZZY 6
 
 
+#define GATE_LED_PIN 12 //gate indicator
 #define GATE_PIN 9 //gate control
 #define SLAVE_SELECT_PIN 10 //spi chip select
 
@@ -34,8 +35,6 @@ int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
 int lastSendPitch = 0;
 
 
-const byte ROWS = 4; //four rows
-const byte COLS = 7; //three columns
 /*
  * -----------------------------------------------------------
  *                       note numbers
@@ -65,6 +64,9 @@ Arduino Uno SPI pins
 
 */                                        
  
+const byte ROWS = 4; // four rows
+const byte COLS = 7; // seven columns
+
 char keys[ROWS][COLS] = {
   {48, 52, 56, 60, 64, 68, 72},
   {49, 53, 57, 61, 65, 69, 0},
@@ -93,8 +95,10 @@ void setup() {
   // initialize SPI:
   SPI.begin(); 
   //Serial.begin(9600); //for debug, can't use midi at the same time!
-  pinMode (GATE_PIN, OUTPUT); //gate for monotron
+  pinMode (GATE_LED_PIN, OUTPUT); //gate indicator
+  pinMode (GATE_PIN, OUTPUT); //gate CV
   digitalWrite(GATE_PIN,LOW); //turn note off
+  digitalWrite(GATE_LED_PIN,LOW); //turn led off
   //dacWrite(1000); //set the pitch just for testing
   
 }
@@ -253,6 +257,7 @@ void synthNoteOn(int note) {
   digitalWrite(GATE_PIN, LOW); //turn gate off momentarily to retrigger LFO
   delayMicroseconds(GATE_RETRIGGER_DELAY_US); //should not do delays here really but get away with this which seems to be the minimum a montotron needs (may be different for other synths)
   digitalWrite(GATE_PIN,HIGH); //turn gate on
+  digitalWrite(GATE_LED_PIN,HIGH);
   currentMidiNote = note; //store the current note
 }
 
@@ -261,4 +266,5 @@ void synthNoteOff(int note) {
   Serial.print(note);
   Serial.println(" OFF");
   digitalWrite(GATE_PIN, LOW); //turn gate off
+  digitalWrite(GATE_LED_PIN,LOW);
 }
