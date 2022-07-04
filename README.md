@@ -1,6 +1,7 @@
 # AKAI Synthstation 25 CV MOD for eurorack
 How to modify the tiny [AKAI Synthstation 25 keyboard](https://www.akaipro.com/synthstation25) for usage in eurorack/control voltage.  
 
+![image](https://user-images.githubusercontent.com/7056051/177115348-58fd0b93-875e-407c-8ef1-f70a4646167e.png)  
 
 
 ## Akai Synth station 25: 16 pin flat cable of keyboard unit
