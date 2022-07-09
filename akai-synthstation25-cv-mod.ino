@@ -3,15 +3,21 @@
   https://www.circuitbasics.com/how-to-set-up-a-keypad-on-an-arduino/
   https://github.com/petegaggs/MIDI-to-CV/blob/master/midi-cv.pdf
   https://github.com/petegaggs/MIDI-to-CV/blob/master/midi_cv2.ino
+
+  https://github.com/joeyoung/arduino_keypads/tree/master/Keypad_MC17
+  
 */
 
 #include <Keypad.h>
+#include "Keypad_MC17.h"
 #include <MIDI.h>
 
 // include the SPI library:
 #include <SPI.h>
 
-#define OCTAVE_PIN A5
+#define I2CADDR 0x20        // address of MCP23017 chip on I2C bus
+
+#define OCTAVE_PIN A1
 #define PITCH_BEND_PIN A0 // pitch bend potentiometer
 #define PITCH_BEND_CENTER 512
 #define PITCH_BEND_UPPER 670
@@ -79,10 +85,15 @@ char keys[ROWS][COLS] = {
   {51, 55, 59, 63, 67, 71, 0}
 };
 
-byte rowPins[ROWS] = {A1, A2, A3, A4};
-byte colPins[COLS] = {2, 3, 4, 5, 6, 7, 8};
+// arduino uno pins (without using MCP23017)
+//byte rowPins[ROWS] = {A1, A2, A3, A4};
+//byte colPins[COLS] = {2, 3, 4, 5, 6, 7, 8};
 
-Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
+// MCP23017 pins
+byte rowPins[ROWS] = {0, 1, 2, 3};
+byte colPins[COLS] = {4, 5, 6, 7, 8, 9, 10};
+
+Keypad_MC17 kpd( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CADDR );
 
 String msg;
 
@@ -90,8 +101,10 @@ String msg;
 void setup() {
   //Serial.begin(9600);
   Serial.begin(31250); // MIDI baudrate
+  while( !Serial ){/*wait*/}   //for USB serial switching boards
   msg = "";
-
+  Wire.begin( );
+  kpd.begin( );
   //SPI stuff
   // set the slaveSelectPin as an output:
   
