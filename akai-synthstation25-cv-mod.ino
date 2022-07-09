@@ -12,10 +12,23 @@
 #include "Keypad_MC17.h"
 #include <MIDI.h>
 
+#include "lfo/lfo.h"
+#include "lfo/lfo.cpp"
+
 // include the SPI library:
 #include <SPI.h>
 
 #define I2CADDR 0x20        // address of MCP23017 chip on I2C bus
+
+#define DACSIZE 4096
+
+#define VIBRATO_AMP_PIN A2  // Arduino Uno pin the amplitude potentiometer is connected to
+#define VIBRATO_FREQ_PIN A3 // Arduino Uno pin the frequency potentiometer is connected to
+#define VIBRATO_HZ_LOWER 0.2
+#define VIBRATO_HZ_UPPER 13
+#define VIBRATO_AMP_LOWER 0
+#define VIBRATO_AMP_UPPER 300
+
 
 #define OCTAVE_PIN A1
 #define PITCH_BEND_PIN A0 // pitch bend potentiometer
@@ -93,7 +106,13 @@ char keys[ROWS][COLS] = {
 byte rowPins[ROWS] = {0, 1, 2, 3};
 byte colPins[COLS] = {4, 5, 6, 7, 8, 9, 10};
 
+int vibratoPotFreqValue = 0;
+int vibratoPotAmpValue = 0;
+
+
 Keypad_MC17 kpd( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CADDR );
+
+lfo lfo_class(DACSIZE);
 
 String msg;
 
@@ -119,11 +138,57 @@ void setup() {
   digitalWrite(GATE_PIN,LOW); //turn note off
   digitalWrite(GATE_LED_PIN,LOW); //turn led off
   //dacWrite(1000); //set the pitch just for testing
-  
+  setupVibrato();
+}
+
+void setupVibrato() {
+
+  lfo_class.setWaveForm(3);   // initialize waveform
+  lfo_class.setAmpl(0);       // set amplitude to 0
+  lfo_class.setAmplOffset(0); // no offset to the amplitude
+  lfo_class.setMode(false);   // set sync mode to mode0 -> no sync to BPM
+  lfo_class.setMode0Freq(0);  // set LFO to 0 Hz
+}
+
+void loopVibratoRead() {
+  int x = 0.3 * analogRead(VIBRATO_FREQ_PIN) + 0.7 * vibratoPotFreqValue;
+  if (x != vibratoPotFreqValue) {
+    vibratoPotFreqValue = x;
+    int newFreq = map(
+      vibratoPotFreqValue,
+      0,
+      1024,
+      VIBRATO_HZ_LOWER*1000,
+      VIBRATO_HZ_UPPER*1000
+    );
+    float newFreqFloat = (float)newFreq/1000;
+    lfo_class.setMode0Freq(
+      newFreqFloat
+    );
+    //Serial.print("VIBRATO FREQ ");
+    //Serial.println(lfo_class.getMode0Freq());
+  }
+
+  x = 0.3 * analogRead(VIBRATO_AMP_PIN) + 0.7 * vibratoPotAmpValue;
+  if (x != vibratoPotAmpValue) {
+    vibratoPotAmpValue = x;
+    lfo_class.setAmpl(
+      map(
+        vibratoPotAmpValue,
+        0,
+        1024,
+        VIBRATO_AMP_LOWER,
+        VIBRATO_AMP_UPPER
+      )
+    );
+    //Serial.print("VIBRATO AMP ");
+    //Serial.println(lfo_class.getAmpl());
+  }
 }
 
 void loop() {
   loopKeyPadRead();
+  loopVibratoRead();
   setNotePitch(currentMidiNote);
 }
 
@@ -224,8 +289,8 @@ void dacWrite(int value) {
   if (value < 0) {
     value = 0;
   }
-  if (value > 4095) {
-    value = 4095;
+  if (value > DACSIZE-1) {
+    value = DACSIZE-1;
   }
   if (lastSendPitch == value) {
     // no need to write same value again
@@ -247,7 +312,15 @@ void dacWrite(int value) {
 
 void setNotePitch(int note) {
   //receive a midi note number and set the DAC voltage accordingly for the pitch CV
-  dacWrite(DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffset() + getOctaveOffset()); //set the pitch of the oscillator
+  int dacValue = DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffset() + getOctaveOffset();
+
+
+  if (vibratoPotAmpValue > 0) {
+    lfo_class.setAmplOffset(dacValue);
+    dacWrite(lfo_class.getWave(micros()));
+    return;
+  }
+  dacWrite(dacValue);
 }
 
 
