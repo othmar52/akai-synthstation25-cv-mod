@@ -23,18 +23,41 @@
 #define DACSIZE 4096
 
 #define VIBRATO_AMP_PIN A2  // Arduino Uno pin the amplitude potentiometer is connected to
-#define VIBRATO_FREQ_PIN A3 // Arduino Uno pin the frequency potentiometer is connected to
+#define VIBRATO_FREQ_PIN A1 // Arduino Uno pin the frequency potentiometer is connected to
 #define VIBRATO_HZ_LOWER 0.2
 #define VIBRATO_HZ_UPPER 13
 #define VIBRATO_AMP_LOWER 0
 #define VIBRATO_AMP_UPPER 300
 
+// we do not use the full range of the pot as we use the original "mod wheel" unit of AKAI synthstation 25
+#define VIBRATO_FREQ_POT_LOWER 367
+#define VIBRATO_FREQ_POT_UPPER 670
 
-#define OCTAVE_PIN A1
+
+
+#define KBD_R1 0
+#define KBD_R2 1
+#define KBD_R3 2
+#define KBD_R4 3
+#define KBD_C1 4
+#define KBD_C2 5
+#define KBD_C3 6
+#define KBD_C4 7
+#define KBD_C5 8
+#define KBD_C6 9
+#define KBD_C7 10
+
+
+#define OCTAVE_DOWN_BUTTON_PIN 2
+#define OCTAVE_UP_BUTTON_PIN 3
+#define OCTAVE_SHIFT_RANGE 2 // 2 octaves up, 2 octaves down
+
+#define OCTAVE_PIN A3
 #define PITCH_BEND_PIN A0 // pitch bend potentiometer
+// we do not use the full range of the pot as we use the original "pitch bend" unit of AKAI synthstation 25
+#define PITCH_BEND_LOWER 360
 #define PITCH_BEND_CENTER 512
 #define PITCH_BEND_UPPER 670
-#define PITCH_BEND_LOWER 360
 #define PITCH_BEND_SEMITONE_RANGE 12 // in each direction
 #define POT_FUZZY 6
 
@@ -44,7 +67,7 @@
 #define GATE_PIN 9 //gate control
 #define SLAVE_SELECT_PIN 10 //spi chip select
 
-#define DAC_BASE -3000 //-3V offset 
+#define DAC_BASE -3000 //-3V offset
 #define DAC_SCALE_PER_SEMITONE 83.333333333
 #define GATE_RETRIGGER_DELAY_US 100 //time in microseconds to turn gate off in order to retrigger envelope
 
@@ -52,7 +75,7 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 
 
 //MIDI variables
-int currentOctave;
+int8_t currentOctave;
 int currentMidiNote; //the note currently being played
 int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
 
@@ -103,8 +126,13 @@ char keys[ROWS][COLS] = {
 //byte colPins[COLS] = {2, 3, 4, 5, 6, 7, 8};
 
 // MCP23017 pins
-byte rowPins[ROWS] = {0, 1, 2, 3};
-byte colPins[COLS] = {4, 5, 6, 7, 8, 9, 10};
+byte rowPins[ROWS] = {
+  KBD_R1, KBD_R2, KBD_R3, KBD_R4
+};
+byte colPins[COLS] = {
+  KBD_C1, KBD_C2, KBD_C3, KBD_C4,
+  KBD_C5, KBD_C6, KBD_C7
+};
 
 int vibratoPotFreqValue = 0;
 int vibratoPotAmpValue = 0;
@@ -139,7 +167,53 @@ void setup() {
   digitalWrite(GATE_LED_PIN,LOW); //turn led off
   //dacWrite(1000); //set the pitch just for testing
   setupVibrato();
+
+  pinMode (OCTAVE_DOWN_BUTTON_PIN, INPUT_PULLUP);
+  pinMode (OCTAVE_UP_BUTTON_PIN, INPUT_PULLUP);
 }
+
+bool octaveButtonDownState = HIGH;
+bool octaveButtonUpState = HIGH;
+
+void loopOctaveButtons() {
+  if (digitalRead(OCTAVE_DOWN_BUTTON_PIN) != octaveButtonDownState) {
+    octaveButtonDownState = !octaveButtonDownState;
+    if (octaveButtonDownState == LOW) {
+      if (octaveButtonUpState == LOW) {
+        resetOctave();
+      } else {
+        octaveDown();
+      }
+    }
+  }
+  if (digitalRead(OCTAVE_UP_BUTTON_PIN) != octaveButtonUpState) {
+    octaveButtonUpState = !octaveButtonUpState;
+    if (octaveButtonUpState == LOW) {
+      if (octaveButtonDownState == LOW) {
+        resetOctave();
+      } else {
+        octaveUp();
+      }
+    }
+  }
+}
+
+void octaveUp() {
+  currentOctave++;
+  if (currentOctave > OCTAVE_SHIFT_RANGE) {
+    currentOctave = OCTAVE_SHIFT_RANGE;
+  }
+}
+void octaveDown() {
+  currentOctave--;
+  if (currentOctave < OCTAVE_SHIFT_RANGE * -1) {
+    currentOctave = OCTAVE_SHIFT_RANGE * -1;
+  }
+}
+void resetOctave() {
+  currentOctave = 0;
+}
+
 
 void setupVibrato() {
 
@@ -152,12 +226,18 @@ void setupVibrato() {
 
 void loopVibratoRead() {
   int x = 0.3 * analogRead(VIBRATO_FREQ_PIN) + 0.7 * vibratoPotFreqValue;
+  if (x < VIBRATO_FREQ_POT_LOWER + POT_FUZZY) {
+    x = VIBRATO_FREQ_POT_LOWER + POT_FUZZY;
+  }
+  if (x > VIBRATO_FREQ_POT_UPPER - POT_FUZZY) {
+    x = VIBRATO_FREQ_POT_UPPER - POT_FUZZY;
+  }
   if (x != vibratoPotFreqValue) {
     vibratoPotFreqValue = x;
     int newFreq = map(
       vibratoPotFreqValue,
-      0,
-      1024,
+      VIBRATO_FREQ_POT_LOWER + POT_FUZZY,
+      VIBRATO_FREQ_POT_UPPER - POT_FUZZY,
       VIBRATO_HZ_LOWER*1000,
       VIBRATO_HZ_UPPER*1000
     );
@@ -190,35 +270,12 @@ void loopVibratoRead() {
 void loop() {
   loopKeyPadRead();
   loopVibratoRead();
+  loopOctaveButtons();
   setNotePitch(currentMidiNote);
 }
 
 float getOctaveOffset() {
-
-  int newOctave = getActiveOctave();
-  if (currentOctave != newOctave) {
-    //Serial.print("new octave = ");
-    //Serial.println(newOctave);
-    currentOctave = newOctave;
-  }
   return DAC_SCALE_PER_SEMITONE * currentOctave * 12;
-}
-
-int getActiveOctave() {
-  int maxOctaves = 2; // 2 up, 2 down
-  int potVal = analogRead(OCTAVE_PIN);
-  int newOctave = 0;
-
-  int distance = 1024 / (2 * maxOctaves + 1);
-  for (int i = 0; i < maxOctaves; i++) {
-    if (potVal < 512 - (i+1) * distance && newOctave != (i+1) * -1) {
-      newOctave = (i+1) * -1;
-    }
-    if (potVal > 512 + (i+1) * distance && newOctave != (i+1)) {
-      newOctave = (i+1);
-    }
-  }
-  return newOctave;
 }
 
 void sendMidiPitchBend(int pitchValue) {
