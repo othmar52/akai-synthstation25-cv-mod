@@ -3,9 +3,9 @@
   https://www.circuitbasics.com/how-to-set-up-a-keypad-on-an-arduino/
   https://github.com/petegaggs/MIDI-to-CV/blob/master/midi-cv.pdf
   https://github.com/petegaggs/MIDI-to-CV/blob/master/midi_cv2.ino
-
   https://github.com/joeyoung/arduino_keypads/tree/master/Keypad_MC17
-  
+  https://github.com/mo-thunderz/lfo
+
 */
 
 #include <Keypad.h>
@@ -22,6 +22,7 @@
 
 #define DACSIZE 4096
 
+#define VIBRATO_LOOP_WAVES_BUTTON_PIN 5
 #define VIBRATO_AMP_PIN A2  // Arduino Uno pin the amplitude potentiometer is connected to
 #define VIBRATO_FREQ_PIN A1 // Arduino Uno pin the frequency potentiometer is connected to
 #define VIBRATO_HZ_LOWER 0.2
@@ -78,6 +79,7 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 
 
 //MIDI variables
+int8_t currentVibratoWave = 3; // sine as default
 bool currentHold = false;
 int8_t currentOctave;
 int currentMidiNote; //the note currently being played
@@ -174,8 +176,10 @@ void setup() {
   pinMode (OCTAVE_DOWN_BUTTON_PIN, INPUT_PULLUP);
   pinMode (OCTAVE_UP_BUTTON_PIN, INPUT_PULLUP);
   pinMode (HOLD_BUTTON_PIN, INPUT_PULLUP);
+  pinMode (VIBRATO_LOOP_WAVES_BUTTON_PIN, INPUT_PULLUP);
 }
 
+bool loobVibratoWaveButtonState = HIGH;
 bool holdButtonState = HIGH;
 bool octaveButtonDownState = HIGH;
 bool octaveButtonUpState = HIGH;
@@ -224,6 +228,32 @@ void loopHoldButton() {
   // TODO: send midi all notes off
 }
 
+void loopVibratoWaveButton() {
+  if (digitalRead(VIBRATO_LOOP_WAVES_BUTTON_PIN) == loobVibratoWaveButtonState) {
+    // button state did not change
+    return;
+  }
+  loobVibratoWaveButtonState = !loobVibratoWaveButtonState;
+  if (loobVibratoWaveButtonState == HIGH) {
+    // button has been released
+    return;
+  }
+  // button has been pressed
+  currentVibratoWave++;
+  // 0 off
+  // 1 saw
+  // 2 triangle
+  // 3 sine
+  // 4 square
+  if (currentVibratoWave == 5) {
+    currentVibratoWave = 1;
+  }
+  // Serial.println(" ");
+  // Serial.print("set wave to ");
+  // Serial.println(currentVibratoWave);
+  lfo_class.setWaveForm(currentVibratoWave);
+}
+
 void octaveUp() {
   currentOctave++;
   if (currentOctave > OCTAVE_SHIFT_RANGE) {
@@ -240,10 +270,9 @@ void resetOctave() {
   currentOctave = 0;
 }
 
-
 void setupVibrato() {
 
-  lfo_class.setWaveForm(3);   // initialize waveform
+  lfo_class.setWaveForm(currentVibratoWave);   // initialize waveform
   lfo_class.setAmpl(0);       // set amplitude to 0
   lfo_class.setAmplOffset(0); // no offset to the amplitude
   lfo_class.setMode(false);   // set sync mode to mode0 -> no sync to BPM
@@ -298,6 +327,7 @@ void loop() {
   loopVibratoRead();
   loopOctaveButtons();
   loopHoldButton();
+  loopVibratoWaveButton();
   setNotePitch(currentMidiNote);
 }
 
