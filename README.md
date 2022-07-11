@@ -3,6 +3,11 @@ How to modify the tiny [AKAI Synthstation 25 keyboard](https://www.akaipro.com/s
 
 ![image](https://user-images.githubusercontent.com/7056051/177115348-58fd0b93-875e-407c-8ef1-f70a4646167e.png)  
 
+![image](https://user-images.githubusercontent.com/7056051/178199092-979addfc-fe6c-423c-9a65-7714f91269df.png)  
+
+![image](https://user-images.githubusercontent.com/7056051/178199271-bdeffb37-29a0-4015-8dd5-f643f93abbb5.png)  
+
+
 
 ## Akai Synth station 25: 16 pin flat cable of keyboard unit
 ```
