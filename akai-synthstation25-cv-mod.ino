@@ -28,7 +28,7 @@
 #define VIBRATO_HZ_LOWER 0.2
 #define VIBRATO_HZ_UPPER 13
 #define VIBRATO_AMP_LOWER 0
-#define VIBRATO_AMP_UPPER 300
+#define VIBRATO_AMP_UPPER 20
 
 // we do not use the full range of the pot as we use the original "mod wheel" unit of AKAI synthstation 25
 #define VIBRATO_FREQ_POT_LOWER 367
@@ -146,7 +146,7 @@ int vibratoPotAmpValue = 0;
 
 Keypad_MC17 kpd( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CADDR );
 
-lfo lfo_class(DACSIZE);
+lfo lfo_class(256);
 
 String msg;
 
@@ -431,8 +431,8 @@ void setNotePitch(int note) {
 
 
   if (vibratoPotAmpValue > 0) {
-    lfo_class.setAmplOffset(dacValue);
-    dacWrite(lfo_class.getWave(micros()));
+    lfo_class.setAmplOffset(dacValue/16);
+    dacWrite(lfo_class.getWave(micros())*16);
     return;
   }
   dacWrite(dacValue);
