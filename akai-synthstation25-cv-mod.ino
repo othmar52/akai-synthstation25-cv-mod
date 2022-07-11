@@ -52,6 +52,9 @@
 #define OCTAVE_UP_BUTTON_PIN 3
 #define OCTAVE_SHIFT_RANGE 2 // 2 octaves up, 2 octaves down
 
+#define HOLD_BUTTON_PIN 4
+
+
 #define OCTAVE_PIN A3
 #define PITCH_BEND_PIN A0 // pitch bend potentiometer
 // we do not use the full range of the pot as we use the original "pitch bend" unit of AKAI synthstation 25
@@ -75,6 +78,7 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 
 
 //MIDI variables
+bool currentHold = false;
 int8_t currentOctave;
 int currentMidiNote; //the note currently being played
 int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
@@ -163,15 +167,16 @@ void setup() {
   //Serial.begin(9600); //for debug, can't use midi at the same time!
   pinMode (GATE_LED_PIN, OUTPUT); //gate indicator
   pinMode (GATE_PIN, OUTPUT); //gate CV
-  digitalWrite(GATE_PIN,LOW); //turn note off
-  digitalWrite(GATE_LED_PIN,LOW); //turn led off
+  cvGateOff();
   //dacWrite(1000); //set the pitch just for testing
   setupVibrato();
 
   pinMode (OCTAVE_DOWN_BUTTON_PIN, INPUT_PULLUP);
   pinMode (OCTAVE_UP_BUTTON_PIN, INPUT_PULLUP);
+  pinMode (HOLD_BUTTON_PIN, INPUT_PULLUP);
 }
 
+bool holdButtonState = HIGH;
 bool octaveButtonDownState = HIGH;
 bool octaveButtonUpState = HIGH;
 
@@ -196,6 +201,27 @@ void loopOctaveButtons() {
       }
     }
   }
+}
+
+void loopHoldButton() {
+  if (digitalRead(HOLD_BUTTON_PIN) == holdButtonState) {
+    // button state did not change
+    return;
+  }
+  holdButtonState = !holdButtonState;
+  if (holdButtonState == HIGH) {
+    // button has been released
+    return;
+  }
+  // button has been pressed
+  currentHold = !currentHold;
+  if (currentHold == true) {
+    // hold mode has been activated
+    return;
+  }
+  // hold mode has been disabled. close CV gate
+  cvGateOff();
+  // TODO: send midi all notes off
 }
 
 void octaveUp() {
@@ -271,6 +297,7 @@ void loop() {
   loopKeyPadRead();
   loopVibratoRead();
   loopOctaveButtons();
+  loopHoldButton();
   setNotePitch(currentMidiNote);
 }
 
@@ -425,10 +452,9 @@ void synthNoteOn(int note) {
   //Serial.println(" ON");
   //starts playback of a note
   setNotePitch(note); //set the oscillator pitch
-  digitalWrite(GATE_PIN, LOW); //turn gate off momentarily to retrigger LFO
+  cvGateOff();
   delayMicroseconds(GATE_RETRIGGER_DELAY_US); //should not do delays here really but get away with this which seems to be the minimum a montotron needs (may be different for other synths)
-  digitalWrite(GATE_PIN,HIGH); //turn gate on
-  digitalWrite(GATE_LED_PIN,HIGH);
+  cvGateOn();
   currentMidiNote = note; //store the current note
 
   //Serial.print("pitch ");
@@ -440,6 +466,18 @@ void synthNoteOff(int note) {
   //Serial.print("Key ");
   //Serial.print(note);
   //Serial.println(" OFF");
-  digitalWrite(GATE_PIN, LOW); //turn gate off
+  if (currentHold == true) {
+    return;
+  }
+  cvGateOff();
+}
+
+void cvGateOff() {
+  digitalWrite(GATE_PIN, LOW);
   digitalWrite(GATE_LED_PIN,LOW);
+}
+
+void cvGateOn() {
+  digitalWrite(GATE_PIN, HIGH);
+  digitalWrite(GATE_LED_PIN,HIGH);
 }
