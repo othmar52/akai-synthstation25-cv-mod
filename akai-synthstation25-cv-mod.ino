@@ -163,7 +163,8 @@ void loopVibratoRead() {
     );
     float newFreqFloat = (float)newFreq/1000;
     lfo_class.setMode0Freq(
-      newFreqFloat
+      newFreqFloat,
+      micros()
     );
     //Serial.print("VIBRATO FREQ ");
     //Serial.println(lfo_class.getMode0Freq());
