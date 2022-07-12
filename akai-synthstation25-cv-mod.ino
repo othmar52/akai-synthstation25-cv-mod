@@ -9,11 +9,12 @@
 */
 
 #include <Keypad.h>
-#include "Keypad_MC17.h"
+#include "libs/keypad-MCP23017/Keypad_MC17.h"
+#include "libs/keypad-MCP23017/Keypad_MC17.cpp"
 #include <MIDI.h>
 
-#include "lfo/lfo.h"
-#include "lfo/lfo.cpp"
+#include "libs/lfo/lfo.h"
+#include "libs/lfo/lfo.cpp"
 
 // include the SPI library:
 #include <SPI.h>
@@ -22,9 +23,9 @@
 
 #define DACSIZE 4096
 
-#define VIBRATO_LOOP_WAVES_BUTTON_PIN 5
-#define VIBRATO_AMP_PIN A2  // Arduino Uno pin the amplitude potentiometer is connected to
-#define VIBRATO_FREQ_PIN A1 // Arduino Uno pin the frequency potentiometer is connected to
+#define VIBRATO_LOOP_WAVES_BUTTON_PIN 5 // Arduino Uno pin the loop waveform momentary switch is connected to
+#define VIBRATO_AMP_PIN A2              // Arduino Uno pin the amplitude potentiometer is connected to
+#define VIBRATO_FREQ_PIN A1             // Arduino Uno pin the frequency potentiometer is connected to
 #define VIBRATO_HZ_LOWER 0.2
 #define VIBRATO_HZ_UPPER 13
 #define VIBRATO_AMP_LOWER 0
@@ -71,7 +72,7 @@
 #define GATE_PIN 9 //gate control
 #define SLAVE_SELECT_PIN 10 //spi chip select
 
-#define DAC_BASE -3000 //-3V offset
+#define DAC_BASE -3000 //-3V offset, TODO: we have to modify this value for tuning, right?
 #define DAC_SCALE_PER_SEMITONE 83.333333333
 #define GATE_RETRIGGER_DELAY_US 100 //time in microseconds to turn gate off in order to retrigger envelope
 
@@ -87,35 +88,7 @@ int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
 
 int lastSendPitch = 0;
 
-int lastSendMidiPitchBend;
-/*
- * -----------------------------------------------------------
- *                       note numbers
- *  octave |  C   C#  D   D#  E   F   F#  G   G#  A   A#  B
- * -----------------------------------------------------------
- *    -2   |  0   1   2   3   4   5   6   7   8   9   10  11
- *    -1   |  12  13  14  15  16  17  18  19  20  21  22  23
- *     0   |  24  25  26  27  28  29  30  31  32  33  34  35
- *     1   |  36  37  38  39  40  41  42  43  44  45  46  47
- *     2   |  48  49  50  51  52  53  54  55  56  57  58  59
- *     3   |  60  61  62  63  64  65  66  67  68  69  70  71
- *     4   |  72  73  74  75  76  77  78  79  80  81  82  83
- *     5   |  84  85  86  87  88  89  90  91  92  93  94  95
- *     6   |  96  97  98  99  100 101 102 103 104 105 106 107
- *     7   |  108 109 110 111 112 113 114 115 116 117 118 119
- *     8   |  120 121 122 123 124 125 126 127
- */
-
-
-/*
-
-Arduino Uno SPI pins
-10: CS/SS               <- we have to use this one for the MCP4821 CS/SS pin
-11: MOSI (data output)  <- we have to use this one for the MCP4821 SDI pin
-12: MISO (data input)
-13: CLOCK               <- we have to use this one for the MCP4821 SCK pin
-
-*/                                        
+int lastSendMidiPitchBend;                                    
  
 const byte ROWS = 4; // four rows
 const byte COLS = 7; // seven columns
@@ -148,178 +121,21 @@ Keypad_MC17 kpd( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CADDR );
 
 lfo lfo_class(256);
 
-String msg;
-
-
-void setup() {
-  //Serial.begin(9600);
-  Serial.begin(31250); // MIDI baudrate
-  while( !Serial ){/*wait*/}   //for USB serial switching boards
-  msg = "";
-  Wire.begin( );
-  kpd.begin( );
-  //SPI stuff
-  // set the slaveSelectPin as an output:
-  
-  // pinMode (PICH_BEND_PIN, INPUT);
-  pinMode (SLAVE_SELECT_PIN, OUTPUT);
-  digitalWrite(SLAVE_SELECT_PIN,HIGH); //set chip select high
-  // initialize SPI:
-  SPI.begin(); 
-  //Serial.begin(9600); //for debug, can't use midi at the same time!
-  pinMode (GATE_LED_PIN, OUTPUT); //gate indicator
-  pinMode (GATE_PIN, OUTPUT); //gate CV
-  cvGateOff();
-  //dacWrite(1000); //set the pitch just for testing
-  setupVibrato();
-
-  pinMode (OCTAVE_DOWN_BUTTON_PIN, INPUT_PULLUP);
-  pinMode (OCTAVE_UP_BUTTON_PIN, INPUT_PULLUP);
-  pinMode (HOLD_BUTTON_PIN, INPUT_PULLUP);
-  pinMode (VIBRATO_LOOP_WAVES_BUTTON_PIN, INPUT_PULLUP);
-}
-
 bool loobVibratoWaveButtonState = HIGH;
 bool holdButtonState = HIGH;
 bool octaveButtonDownState = HIGH;
 bool octaveButtonUpState = HIGH;
 
-void loopOctaveButtons() {
-  if (digitalRead(OCTAVE_DOWN_BUTTON_PIN) != octaveButtonDownState) {
-    octaveButtonDownState = !octaveButtonDownState;
-    if (octaveButtonDownState == LOW) {
-      if (octaveButtonUpState == LOW) {
-        resetOctave();
-      } else {
-        octaveDown();
-      }
-    }
-  }
-  if (digitalRead(OCTAVE_UP_BUTTON_PIN) != octaveButtonUpState) {
-    octaveButtonUpState = !octaveButtonUpState;
-    if (octaveButtonUpState == LOW) {
-      if (octaveButtonDownState == LOW) {
-        resetOctave();
-      } else {
-        octaveUp();
-      }
-    }
-  }
-}
 
-void loopHoldButton() {
-  if (digitalRead(HOLD_BUTTON_PIN) == holdButtonState) {
-    // button state did not change
-    return;
-  }
-  holdButtonState = !holdButtonState;
-  if (holdButtonState == HIGH) {
-    // button has been released
-    return;
-  }
-  // button has been pressed
-  currentHold = !currentHold;
-  if (currentHold == true) {
-    // hold mode has been activated
-    return;
-  }
-  // hold mode has been disabled. close CV gate
-  cvGateOff();
-  // TODO: send midi all notes off
-}
-
-void loopVibratoWaveButton() {
-  if (digitalRead(VIBRATO_LOOP_WAVES_BUTTON_PIN) == loobVibratoWaveButtonState) {
-    // button state did not change
-    return;
-  }
-  loobVibratoWaveButtonState = !loobVibratoWaveButtonState;
-  if (loobVibratoWaveButtonState == HIGH) {
-    // button has been released
-    return;
-  }
-  // button has been pressed
-  currentVibratoWave++;
-  // 0 off
-  // 1 saw
-  // 2 triangle
-  // 3 sine
-  // 4 square
-  if (currentVibratoWave == 5) {
-    currentVibratoWave = 1;
-  }
-  // Serial.println(" ");
-  // Serial.print("set wave to ");
-  // Serial.println(currentVibratoWave);
-  lfo_class.setWaveForm(currentVibratoWave);
-}
-
-void octaveUp() {
-  currentOctave++;
-  if (currentOctave > OCTAVE_SHIFT_RANGE) {
-    currentOctave = OCTAVE_SHIFT_RANGE;
-  }
-}
-void octaveDown() {
-  currentOctave--;
-  if (currentOctave < OCTAVE_SHIFT_RANGE * -1) {
-    currentOctave = OCTAVE_SHIFT_RANGE * -1;
-  }
-}
-void resetOctave() {
-  currentOctave = 0;
-}
-
-void setupVibrato() {
-
-  lfo_class.setWaveForm(currentVibratoWave);   // initialize waveform
-  lfo_class.setAmpl(0);       // set amplitude to 0
-  lfo_class.setAmplOffset(0); // no offset to the amplitude
-  lfo_class.setMode(false);   // set sync mode to mode0 -> no sync to BPM
-  lfo_class.setMode0Freq(0);  // set LFO to 0 Hz
-}
-
-void loopVibratoRead() {
-  int x = 0.3 * analogRead(VIBRATO_FREQ_PIN) + 0.7 * vibratoPotFreqValue;
-  if (x < VIBRATO_FREQ_POT_LOWER + POT_FUZZY) {
-    x = VIBRATO_FREQ_POT_LOWER + POT_FUZZY;
-  }
-  if (x > VIBRATO_FREQ_POT_UPPER - POT_FUZZY) {
-    x = VIBRATO_FREQ_POT_UPPER - POT_FUZZY;
-  }
-  if (x != vibratoPotFreqValue) {
-    vibratoPotFreqValue = x;
-    int newFreq = map(
-      vibratoPotFreqValue,
-      VIBRATO_FREQ_POT_LOWER + POT_FUZZY,
-      VIBRATO_FREQ_POT_UPPER - POT_FUZZY,
-      VIBRATO_HZ_LOWER*1000,
-      VIBRATO_HZ_UPPER*1000
-    );
-    float newFreqFloat = (float)newFreq/1000;
-    lfo_class.setMode0Freq(
-      newFreqFloat,
-      micros()
-    );
-    //Serial.print("VIBRATO FREQ ");
-    //Serial.println(lfo_class.getMode0Freq());
-  }
-
-  x = 0.3 * analogRead(VIBRATO_AMP_PIN) + 0.7 * vibratoPotAmpValue;
-  if (x != vibratoPotAmpValue) {
-    vibratoPotAmpValue = x;
-    lfo_class.setAmpl(
-      map(
-        vibratoPotAmpValue,
-        0,
-        1024,
-        VIBRATO_AMP_LOWER,
-        VIBRATO_AMP_UPPER
-      )
-    );
-    //Serial.print("VIBRATO AMP ");
-    //Serial.println(lfo_class.getAmpl());
-  }
+void setup() {
+  //Serial.begin(9600); //for debug, can't use midi at the same time!
+  Serial.begin(31250); // MIDI baudrate
+  while( !Serial ){/*wait*/}   //for USB serial switching boards
+  setupKeyboard();
+  setupCvOut();
+  setupVibrato();
+  setupOctaveShift();
+  setupHold();
 }
 
 void loop() {
@@ -329,185 +145,4 @@ void loop() {
   loopHoldButton();
   loopVibratoWaveButton();
   setNotePitch(currentMidiNote);
-}
-
-float getOctaveOffset() {
-  return DAC_SCALE_PER_SEMITONE * currentOctave * 12;
-}
-
-void sendMidiPitchBend(int pitchValue) {
-  if (lastSendMidiPitchBend == pitchValue) {
-    return;  
-  }
-  MIDI.sendPitchBend(pitchValue, MIDI_CHANNEL);
-  lastSendMidiPitchBend = pitchValue;
-}
-
-float getPitchbendOffset() {
-  int potVal = analogRead(PITCH_BEND_PIN);
-  int midiPitchBendVal = 64;
-  float percent = 0.;
-  if (potVal > PITCH_BEND_CENTER - POT_FUZZY && potVal < PITCH_BEND_CENTER + POT_FUZZY) {
-    sendMidiPitchBend(midiPitchBendVal);
-    return percent;
-  }
-  if (potVal < PITCH_BEND_CENTER) {
-    if (potVal < PITCH_BEND_LOWER + POT_FUZZY) {
-      potVal = PITCH_BEND_LOWER + POT_FUZZY;
-    }
-    percent = map(potVal, PITCH_BEND_LOWER + POT_FUZZY, PITCH_BEND_CENTER - POT_FUZZY, -100, 0);
-    midiPitchBendVal = map(potVal, PITCH_BEND_LOWER + POT_FUZZY, PITCH_BEND_CENTER - POT_FUZZY, 0, 63);
-    ////Serial.println("pitch down");
-  } else {
-    if (potVal > PITCH_BEND_UPPER - POT_FUZZY) {
-      potVal = PITCH_BEND_UPPER - POT_FUZZY;
-    }
-    percent = map(potVal, PITCH_BEND_CENTER + POT_FUZZY, PITCH_BEND_UPPER - POT_FUZZY, 0, 100);
-    midiPitchBendVal = map(potVal, PITCH_BEND_CENTER + POT_FUZZY, PITCH_BEND_UPPER - POT_FUZZY, 65, 127);
-    ////Serial.println("pitch up");
-  }
-  sendMidiPitchBend(midiPitchBendVal);
-  percent = percent * (DAC_SCALE_PER_SEMITONE*PITCH_BEND_SEMITONE_RANGE/100);
-  ////Serial.println(percent);
-  return percent;
-}
-
-void loopKeyPadRead() {
-  if (!kpd.getKeys())
-  {
-    return;
-  }
-  for (int i = 0; i < LIST_MAX; i++) // Scan the whole key list.
-  {
-    if ( !kpd.key[i].stateChanged )   // Only find keys that have changed state.
-    {
-      continue;
-    }
-    switch (kpd.key[i].kstate) {  // Report active key state : IDLE, PRESSED, HOLD, or RELEASED
-
-      case HOLD:
-      case IDLE:
-        continue;
-      case PRESSED:
-        handleNoteOn((kpd.key[i].kchar - '0') + 48);
-        break;
-
-      case RELEASED:
-        handleNoteOff((kpd.key[i].kchar - '0') + 48);
-        break;
-    }
-  }
-}
-
-void dacWrite(int value) {
-  //write a 12 bit number to the MCP8421 DAC
-  if (value < 0) {
-    value = 0;
-  }
-  if (value > DACSIZE-1) {
-    value = DACSIZE-1;
-  }
-  if (lastSendPitch == value) {
-    // no need to write same value again
-    return;
-  }
-  //Serial.print("new pitch value = ");
-  //Serial.println(value);
-  lastSendPitch = value;
-  
-  // take the SS pin low to select the chip:
-  digitalWrite(SLAVE_SELECT_PIN,LOW);
-  //send a value to the DAC
-  SPI.transfer(0x10 | ((value >> 8) & 0x0F)); //bits 0..3 are bits 8..11 of 12 bit value, bits 4..7 are control data 
-  SPI.transfer(value & 0xFF); //bits 0..7 of 12 bit value
-  // take the SS pin high to de-select the chip:
-  digitalWrite(SLAVE_SELECT_PIN,HIGH); 
-}
-
-
-void setNotePitch(int note) {
-  //receive a midi note number and set the DAC voltage accordingly for the pitch CV
-  int dacValue = DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffset() + getOctaveOffset();
-
-
-  if (vibratoPotAmpValue > 0) {
-    lfo_class.setAmplOffset(dacValue/16);
-    dacWrite(lfo_class.getWave(micros())*16);
-    return;
-  }
-  dacWrite(dacValue);
-}
-
-
-void handleNoteOn(byte pitch) { 
-  // this function is called automatically when a note on message is received 
-  keysPressedArray[pitch] = 1;
-  synthNoteOn(pitch);
-  MIDI.sendNoteOn(pitch + currentOctave * 12, 127, MIDI_CHANNEL);
-}
-
-void handleNoteOff(byte pitch)
-{
-  keysPressedArray[pitch] = 0; //update the array holding the keys pressed 
-  if (pitch == currentMidiNote) {
-    //only act if the note released is the one currently playing, otherwise ignore it
-    int highestKeyPressed = findHighestKeyPressed(); //search the array to find the highest key pressed, will return -1 if no keys pressed
-    if (highestKeyPressed != -1) { 
-      //there is another key pressed somewhere, so the note off becomes a note on for the highest note pressed
-      synthNoteOn(highestKeyPressed);
-    }    
-    else  {
-      //there are no other keys pressed so proper note off
-      synthNoteOff(pitch);
-    }
-  } 
-  MIDI.sendNoteOff(pitch + currentOctave * 12, 0, MIDI_CHANNEL); 
-}
-
-int findHighestKeyPressed(void) {
-  //search the array to find the highest key pressed. Return -1 if no keys are pressed
-  int highestKeyPressed = -1; 
-  for (int count = 0; count < 127; count++) {
-    //go through the array holding the keys pressed to find which is the highest (highest note has priority), and to find out if no keys are pressed
-    if (keysPressedArray[count] == 1) {
-      highestKeyPressed = count; //find the highest one
-    }
-  }
-  return(highestKeyPressed);
-}
-
-void synthNoteOn(int note) {
-  //Serial.print("Key ");
-  //Serial.print(note);
-  //Serial.println(" ON");
-  //starts playback of a note
-  setNotePitch(note); //set the oscillator pitch
-  cvGateOff();
-  delayMicroseconds(GATE_RETRIGGER_DELAY_US); //should not do delays here really but get away with this which seems to be the minimum a montotron needs (may be different for other synths)
-  cvGateOn();
-  currentMidiNote = note; //store the current note
-
-  //Serial.print("pitch ");
-  //Serial.println(note + currentOctave * 12);
-  
-}
-
-void synthNoteOff(int note) {
-  //Serial.print("Key ");
-  //Serial.print(note);
-  //Serial.println(" OFF");
-  if (currentHold == true) {
-    return;
-  }
-  cvGateOff();
-}
-
-void cvGateOff() {
-  digitalWrite(GATE_PIN, LOW);
-  digitalWrite(GATE_LED_PIN,LOW);
-}
-
-void cvGateOn() {
-  digitalWrite(GATE_PIN, HIGH);
-  digitalWrite(GATE_LED_PIN,HIGH);
 }
