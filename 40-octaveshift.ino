@@ -1,8 +1,19 @@
 
-float getOctaveOffset() {
-  return DAC_SCALE_PER_SEMITONE * currentOctave * 12;
-}
- 
+
+
+
+#define OCTAVE_DOWN_BUTTON_PIN 2
+#define OCTAVE_UP_BUTTON_PIN 3
+#define OCTAVE_SHIFT_RANGE 2 // 2 octaves up, 2 octaves down
+
+
+#define OCTAVE_PIN A3
+
+
+bool octaveButtonDownState = HIGH;
+bool octaveButtonUpState = HIGH;
+
+
 void setupOctaveShift() {
   pinMode (OCTAVE_DOWN_BUTTON_PIN, INPUT_PULLUP);
   pinMode (OCTAVE_UP_BUTTON_PIN, INPUT_PULLUP);

@@ -1,14 +1,50 @@
  
+/*
+
+Arduino Uno SPI pins
+10: CS/SS               <- we have to use this one for the MCP4821 CS/SS pin
+11: MOSI (data output)  <- we have to use this one for the MCP4821 SDI pin
+12: MISO (data input)
+13: CLOCK               <- we have to use this one for the MCP4821 SCK pin
+
+*/
+
+// include the SPI library:
+#include <SPI.h>
+
+#define GATE_LED_PIN 12 //gate indicator
+#define GATE_PIN 9 //gate control
+#define SLAVE_SELECT_PIN 10 //spi chip select
+
+#define DAC_BASE -3000 //-3V offset, TODO: we have to modify this value for tuning, right?
+#define DAC_SCALE_PER_SEMITONE 83.333333333
+
+int lastSendPitch = 0;
+
 void setupCvOut() {
   pinMode (GATE_LED_PIN, OUTPUT); //gate indicator
   pinMode (GATE_PIN, OUTPUT); //gate CV
-  cvGateOff();
+  //SPI stuff
+  // set the slaveSelectPin as an output:
+  pinMode (SLAVE_SELECT_PIN, OUTPUT);
+  digitalWrite(SLAVE_SELECT_PIN,HIGH); //set chip select high
+  // initialize SPI:
+  SPI.begin(); 
   //dacWrite(1000); //set the pitch just for testing
+  cvGateOff();
 }
 
+float getOctaveOffset() {
+  return DAC_SCALE_PER_SEMITONE * currentOctave * 12;
+}
+
+float getPitchbendOffsetCV() {
+  return pitchBendPercent * (DAC_SCALE_PER_SEMITONE*PITCH_BEND_SEMITONE_RANGE/100);
+ 
+}
 void setNotePitch(int note) {
   //receive a midi note number and set the DAC voltage accordingly for the pitch CV
-  int dacValue = DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffset() + getOctaveOffset();
+  int dacValue = DAC_BASE+(note*DAC_SCALE_PER_SEMITONE)+ getPitchbendOffsetCV() + getOctaveOffset();
 
 
   if (vibratoPotAmpValue > 0) {

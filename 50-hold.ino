@@ -1,7 +1,10 @@
  
 
-
+#define HOLD_BUTTON_PIN 4
  
+
+bool holdButtonState = HIGH;
+
 void setupHold() {
   pinMode (HOLD_BUTTON_PIN, INPUT_PULLUP);
 }

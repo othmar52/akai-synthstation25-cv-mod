@@ -1,28 +1,61 @@
  
 
-/*
+// keyboard unit's row/col pins are connected to an MCP23017
+#include <Keypad.h>
+#include "libs/keypad-MCP23017/Keypad_MC17.h"
+#include "libs/keypad-MCP23017/Keypad_MC17.cpp"
 
-Arduino Uno SPI pins
-10: CS/SS               <- we have to use this one for the MCP4821 CS/SS pin
-11: MOSI (data output)  <- we have to use this one for the MCP4821 SDI pin
-12: MISO (data input)
-13: CLOCK               <- we have to use this one for the MCP4821 SCK pin
+#define I2CADDR 0x20        // address of MCP23017 chip on I2C bus
 
-*/
+#define KBD_R1 0
+#define KBD_R2 1
+#define KBD_R3 2
+#define KBD_R4 3
+#define KBD_C1 4
+#define KBD_C2 5
+#define KBD_C3 6
+#define KBD_C4 7
+#define KBD_C5 8
+#define KBD_C6 9
+#define KBD_C7 10
+
+
+const byte ROWS = 4; // four rows
+const byte COLS = 7; // seven columns
+
+char keys[ROWS][COLS] = {
+  {48, 52, 56, 60, 64, 68, 72},
+  {49, 53, 57, 61, 65, 69, 0},
+  {50, 54, 58, 62, 66, 70, 0},
+  {51, 55, 59, 63, 67, 71, 0}
+};
+
+
+// arduino uno pins (without using MCP23017)
+//byte rowPins[ROWS] = {A1, A2, A3, A4};
+//byte colPins[COLS] = {2, 3, 4, 5, 6, 7, 8};
+
+// MCP23017 pins
+byte rowPins[ROWS] = {
+  KBD_R1, KBD_R2, KBD_R3, KBD_R4
+};
+byte colPins[COLS] = {
+  KBD_C1, KBD_C2, KBD_C3, KBD_C4,
+  KBD_C5, KBD_C6, KBD_C7
+};
+
+int keysPressedArray[128] = {0}; //to keep track of which keys are pressed
+
+Keypad_MC17 kpd( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CADDR );
+
 
 
 void setupKeyboard() {
   Wire.begin( );
   kpd.begin( );
-  //SPI stuff
-  // set the slaveSelectPin as an output:
-  pinMode (SLAVE_SELECT_PIN, OUTPUT);
-  digitalWrite(SLAVE_SELECT_PIN,HIGH); //set chip select high
-  // initialize SPI:
-  SPI.begin(); 
 }
 
-void loopKeyPadRead() {
+void loopKeyboardRead() {
   if (!kpd.getKeys())
   {
     return;
@@ -39,26 +72,27 @@ void loopKeyPadRead() {
       case IDLE:
         continue;
       case PRESSED:
-        handleNoteOn((kpd.key[i].kchar - '0') + 48);
+        handleKeyboardNotePressed((kpd.key[i].kchar - '0') + 48);
         break;
 
       case RELEASED:
-        handleNoteOff((kpd.key[i].kchar - '0') + 48);
+        handleKeyboardNoteReleased((kpd.key[i].kchar - '0') + 48);
         break;
     }
   }
 }
 
 
-
-void handleNoteOn(byte pitch) { 
+// one of the 25 keys has been pressed
+void handleKeyboardNotePressed(byte pitch) { 
   // this function is called automatically when a note on message is received 
   keysPressedArray[pitch] = 1;
   synthNoteOn(pitch);
-  MIDI.sendNoteOn(pitch + currentOctave * 12, 127, MIDI_CHANNEL);
+  handleKeyboardNotePressedMidi(pitch);
 }
 
-void handleNoteOff(byte pitch)
+// one of the 25 keys has been released
+void handleKeyboardNoteReleased(byte pitch)
 {
   keysPressedArray[pitch] = 0; //update the array holding the keys pressed 
   if (pitch == currentMidiNote) {
@@ -72,8 +106,9 @@ void handleNoteOff(byte pitch)
       //there are no other keys pressed so proper note off
       synthNoteOff(pitch);
     }
-  } 
-  MIDI.sendNoteOff(pitch + currentOctave * 12, 0, MIDI_CHANNEL); 
+  }
+  handleKeyboardNoteReleasedMidi(pitch);
+  
 }
 
 int findHighestKeyPressed(void) {

@@ -1,5 +1,26 @@
 
 
+#include "libs/lfo/lfo.h"
+#include "libs/lfo/lfo.cpp"
+
+#define VIBRATO_LOOP_WAVES_BUTTON_PIN 5 // Arduino Uno pin the loop waveform momentary switch is connected to
+#define VIBRATO_AMP_PIN A2              // Arduino Uno pin the amplitude potentiometer is connected to
+#define VIBRATO_FREQ_PIN A1             // Arduino Uno pin the frequency potentiometer is connected to
+#define VIBRATO_HZ_LOWER 0.2
+#define VIBRATO_HZ_UPPER 13
+#define VIBRATO_AMP_LOWER 0
+#define VIBRATO_AMP_UPPER 20
+
+// we do not use the full range of the pot as we use the original "mod wheel" unit of AKAI synthstation 25
+#define VIBRATO_FREQ_POT_LOWER 367
+#define VIBRATO_FREQ_POT_UPPER 670
+
+lfo lfo_class(256);
+
+                      
+int vibratoPotFreqValue = 0;
+int vibratoPotAmpValue = 0;
+bool loobVibratoWaveButtonState = HIGH;
 
 void setupVibrato() {
 

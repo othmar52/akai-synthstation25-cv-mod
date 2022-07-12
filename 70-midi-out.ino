@@ -2,7 +2,7 @@
 
 /*
  * -----------------------------------------------------------
- *                       note numbers
+ *                      MIDI note numbers
  *  octave |  C   C#  D   D#  E   F   F#  G   G#  A   A#  B
  * -----------------------------------------------------------
  *    -2   |  0   1   2   3   4   5   6   7   8   9   10  11
@@ -18,7 +18,42 @@
  *     8   |  120 121 122 123 124 125 126 127
  */
 
+// TODO: close or reopen note when we have an octave shift during noteOn to avoid stuck notes
 
+#include <MIDI.h>
+
+#define MIDI_CHANNEL 1            // the midi channel to send to
+MIDI_CREATE_DEFAULT_INSTANCE();
+int lastSendMidiPitchBend;
+
+void getPitchBendValueMidi() {
+  int potVal = analogRead(PITCH_BEND_PIN);
+  int midiPitchBendVal = 64;
+  if (pitchBendPercent == 0) {
+    return midiPitchBendVal;
+  }
+  if (pitchBendPercent > 0) {
+    return map(potVal, PITCH_BEND_CENTER + POT_FUZZY, PITCH_BEND_UPPER - POT_FUZZY, 65, 127);
+  }
+  map(potVal, PITCH_BEND_LOWER + POT_FUZZY, PITCH_BEND_CENTER - POT_FUZZY, 0, 63);
+}
+
+void handleKeyboardNotePressedMidi(byte pitch) {
+  MIDI.sendNoteOn(
+    pitch + currentOctave * 12,  // note number
+    127,                         // velocity
+    MIDI_CHANNEL                 // midi channel
+  );
+}
+
+
+void handleKeyboardNoteReleasedMidi(byte pitch) {
+  MIDI.sendNoteOff(
+    pitch + currentOctave * 12,  // note number
+    0,                           // velocity
+    MIDI_CHANNEL                 // midi channel
+  );
+}
 
 void sendMidiPitchBend(int pitchValue) {
   if (lastSendMidiPitchBend == pitchValue) {
