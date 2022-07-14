@@ -31,6 +31,7 @@ void setupVibrato() {
   lfo_class.setMode0Freq(0);  // set LFO to 0 Hz
 
   pinMode (VIBRATO_LOOP_WAVES_BUTTON_PIN, INPUT_PULLUP);
+  setLedForVibratoWave(currentVibratoWave);
 }
 
 
@@ -103,4 +104,5 @@ void loopVibratoWaveButton() {
   // Serial.print("set wave to ");
   // Serial.println(currentVibratoWave);
   lfo_class.setWaveForm(currentVibratoWave);
+  setLedForVibratoWave(currentVibratoWave);
 }

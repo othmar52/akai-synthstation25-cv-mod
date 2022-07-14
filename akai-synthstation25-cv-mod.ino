@@ -23,15 +23,17 @@ int currentMidiNote; //the note currently being played
 
 
 void setup() {
-  //Serial.begin(9600); //for debug, can't use midi at the same time!
-  Serial.begin(31250); // MIDI baudrate
+  Serial.begin(9600); //for debug, can't use midi at the same time!
+  //Serial.begin(31250); // MIDI baudrate
   while( !Serial ){/*wait*/}   //for USB serial switching boards
+  setupLedstrip();
   setupKeyboard();
   setupCvOut();
   setupVibrato();
   setupPitchBend();
   setupOctaveShift();
   setupHold();
+  setupCvClockReset();
 }
 
 void loop() {
@@ -42,4 +44,5 @@ void loop() {
   loopPitchBendPot();
   loopVibratoWaveButton();
   setNotePitch(currentMidiNote);
+  loopLedstrip();
 }

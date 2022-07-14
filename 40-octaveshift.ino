@@ -2,8 +2,8 @@
 
 
 
-#define OCTAVE_DOWN_BUTTON_PIN 2
-#define OCTAVE_UP_BUTTON_PIN 3
+#define OCTAVE_DOWN_BUTTON_PIN 6
+#define OCTAVE_UP_BUTTON_PIN 8
 #define OCTAVE_SHIFT_RANGE 2 // 2 octaves up, 2 octaves down
 
 
@@ -17,6 +17,7 @@ bool octaveButtonUpState = HIGH;
 void setupOctaveShift() {
   pinMode (OCTAVE_DOWN_BUTTON_PIN, INPUT_PULLUP);
   pinMode (OCTAVE_UP_BUTTON_PIN, INPUT_PULLUP);
+  setLedForCurrentOctave(currentOctave);
 }
 
 void loopOctaveButtons() {
@@ -47,13 +48,16 @@ void octaveUp() {
   if (currentOctave > OCTAVE_SHIFT_RANGE) {
     currentOctave = OCTAVE_SHIFT_RANGE;
   }
+  setLedForCurrentOctave(currentOctave);
 }
 void octaveDown() {
   currentOctave--;
   if (currentOctave < OCTAVE_SHIFT_RANGE * -1) {
     currentOctave = OCTAVE_SHIFT_RANGE * -1;
   }
+  setLedForCurrentOctave(currentOctave);
 }
 void resetOctave() {
   currentOctave = 0;
+  setLedForCurrentOctave(currentOctave);
 }

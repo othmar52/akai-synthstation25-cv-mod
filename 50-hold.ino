@@ -21,6 +21,7 @@ void loopHoldButton() {
   }
   // button has been pressed
   currentHold = !currentHold;
+  setLedForHoldMode(currentHold);
   if (currentHold == true) {
     // hold mode has been activated
     return;
