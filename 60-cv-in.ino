@@ -7,6 +7,13 @@
 bool clockRunning = false;
 unsigned long tickCounter = 0; // incremental counter since clock-start-event
 
+// calculate the tempo for syncing vibrato
+const int PPQN = 4;
+float bpm = .0;
+unsigned long currentMilliSecond = 0;
+unsigned long lastBarStartMilliSecond = 0;
+
+
 void setupCvClockReset() {
   // Interrupts
   pinMode(CLOCK_INPUT_PIN, INPUT);
@@ -30,6 +37,18 @@ void isrReset() {
 void handleEventIncomingCvClockTick()
 {
   tickCounter++;
+
+  if (tickCounter == 1)
+  {
+    lastBarStartMilliSecond = millis();
+  }
+  currentMilliSecond = millis();
+  if (tickCounter % PPQN == 0) {
+    bpm = 60000.0 / ((float)currentMilliSecond - (float)lastBarStartMilliSecond);
+    lastBarStartMilliSecond = currentMilliSecond;
+    // Serial.print("  BPM: ");
+    // Serial.println(bpm);
+  }
   // do stuff thats only blazing baton related
   blazingBatonClockTick();
 }

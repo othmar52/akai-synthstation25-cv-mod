@@ -1,3 +1,15 @@
+/*
+                                  MCP4821
+                                 top view
+                              _______ _______
+                             |       U       |
+ to MCP4821 pin 6 (SHDN) <- -| 1 VDD  VOUT 8 |- -> 100 R -> PITCH CV OUTPUT JACK
+   to Arduino Uno pin 10 <- -| 2 CS    VSS 7 |- -> GND
+   to Arduino Uno pin 13 <- -| 3 SCK  SHDN 6 |- -> 5V (with 10 uF cap to GND)
+   to Arduino Uno pin 11 <- -| 4 SDI  LDAC 5 |- -> GND
+                             |_______________|
+
+*/
  
 /*
 
@@ -48,8 +60,8 @@ void setNotePitch(int note) {
 
 
   if (vibratoPotAmpValue > 0) {
-    lfo_class.setAmplOffset(dacValue/16);
-    dacWrite(lfo_class.getWave(micros())*16);
+    lfo_class.setAmplOffset(dacValue);
+    dacWrite(lfo_class.getWave(micros()));
     return;
   }
   dacWrite(dacValue);

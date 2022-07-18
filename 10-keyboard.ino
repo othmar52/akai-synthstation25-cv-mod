@@ -1,4 +1,28 @@
- 
+/*
+pin numers on PCB starts with 1 on the very right (top view of keyboard)
+───────────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┐
+   Keyboard│    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │
+ (top view)│ 16 │ 15 │ 14 │ 13 │ 12 │ 11 │ 10 │  9 │  8 │  7 │  6 │  5 │  4 │  3 │  2 │  1 │
+ flat cable│    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │
+───────────┼────┼────┼────┼────┼────┼────┼────┼────┼────┼────┼────┼────┼────┼────┼────┼────┤
+    row/col│    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │
+     Keypad│    │ C7 │ C6 │ C5 │ C4 │ C3 │ C2 │ C1 │    │ R4 │    │ R3 │    │ R2 │    │ R1 │
+    library│    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │    │
+───────────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┘
+*/
+/*
+
+      7   6   5   4   3   2   1   0          3V  GND GND GND
+      |   |   |   |   |   |   |   |   |   |   |   |   |   |
+    ┌───────────────────────────────────────────────────────┐
+    │                                                       │
+    Ↄ                  MCP23017 TOP VIEW                    │
+    │                                                       │
+    └───────────────────────────────────────────────────────┘
+      |   |   |   |   |   |   |   |   |   |   |   |   |   |
+      8   9  10  11  12  13  14  15  3V  GND      A5  A4
+
+*/
 
 // keyboard unit's row/col pins are connected to an MCP23017
 #include <Keypad.h>
@@ -29,11 +53,6 @@ char keys[ROWS][COLS] = {
   {50, 54, 58, 62, 66, 70, 0},
   {51, 55, 59, 63, 67, 71, 0}
 };
-
-
-// arduino uno pins (without using MCP23017)
-//byte rowPins[ROWS] = {A1, A2, A3, A4};
-//byte colPins[COLS] = {2, 3, 4, 5, 6, 7, 8};
 
 // MCP23017 pins
 byte rowPins[ROWS] = {
@@ -84,18 +103,18 @@ void loopKeyboardRead() {
 
 
 // one of the 25 keys has been pressed
-void handleKeyboardNotePressed(byte pitch) { 
-  // this function is called automatically when a note on message is received 
-  keysPressedArray[pitch] = 1;
-  synthNoteOn(pitch);
-  handleKeyboardNotePressedMidi(pitch);
+void handleKeyboardNotePressed(byte keyNumber) {
+  // this function is called when a note on message is received
+  keysPressedArray[keyNumber] = 1;
+  synthNoteOn(keyNumber);
+  handleKeyboardNotePressedMidi(keyNumber);
 }
 
 // one of the 25 keys has been released
-void handleKeyboardNoteReleased(byte pitch)
+void handleKeyboardNoteReleased(byte keyNumber)
 {
-  keysPressedArray[pitch] = 0; //update the array holding the keys pressed 
-  if (pitch == currentMidiNote) {
+  keysPressedArray[keyNumber] = 0; //update the array holding the keys pressed 
+  if (keyNumber == currentMidiNote) {
     //only act if the note released is the one currently playing, otherwise ignore it
     int highestKeyPressed = findHighestKeyPressed(); //search the array to find the highest key pressed, will return -1 if no keys pressed
     if (highestKeyPressed != -1) { 
@@ -104,10 +123,10 @@ void handleKeyboardNoteReleased(byte pitch)
     }    
     else  {
       //there are no other keys pressed so proper note off
-      synthNoteOff(pitch);
+      synthNoteOff(keyNumber);
     }
   }
-  handleKeyboardNoteReleasedMidi(pitch);
+  handleKeyboardNoteReleasedMidi(keyNumber);
   
 }
 
@@ -124,25 +143,15 @@ int findHighestKeyPressed(void) {
 }
 
 void synthNoteOn(int note) {
-  //Serial.print("Key ");
-  //Serial.print(note);
-  //Serial.println(" ON");
-  //starts playback of a note
+
   setNotePitch(note); //set the oscillator pitch
   cvGateOff();
   delayMicroseconds(GATE_RETRIGGER_DELAY_US); //should not do delays here really but get away with this which seems to be the minimum a montotron needs (may be different for other synths)
   cvGateOn();
   currentMidiNote = note; //store the current note
-
-  //Serial.print("pitch ");
-  //Serial.println(note + currentOctave * 12);
-  
 }
 
 void synthNoteOff(int note) {
-  //Serial.print("Key ");
-  //Serial.print(note);
-  //Serial.println(" OFF");
   if (currentHold == true) {
     return;
   }
