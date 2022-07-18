@@ -1,11 +1,13 @@
 #define NUMBATONPIXELS 16
-#define BATONPIXELSTART 0
+#define BATONPIXELSTART 9
+#define BATONRUNBACKWARDS 1
 
 const int countDownToQuarterNote = 64; /** end of countdown [quarter note] (should be a multiple of NUMBATONPIXELS) */
 const int ppqn = 4;                                /** pulses per quarter note */
 const int maxTicks = ppqn * countDownToQuarterNote; /** when to reset tick counter to zero */
 const int countDownStartTick = ppqn * (countDownToQuarterNote - 4);
 
+uint32_t batonLedIndex[NUMBATONPIXELS];
 
 int insideQuarterNoteCounter = 0;  /** on quarter note start */
 int currentSection = 1;            /** loop index (starting from 1) */
@@ -13,6 +15,17 @@ int currentStepLedIndex = 0;       /** index of last highlighted led (starting f
 const int numSections = countDownToQuarterNote / NUMBATONPIXELS; /** amount of loops before restart */
 
 uint32_t tickCounterBatonLoop = 0; /** incremental counter since clock-start-event */
+
+
+void setupBlazingBaton() {
+  for (int i = 0; i < NUMBATONPIXELS; i++)
+  {
+    batonLedIndex[i] = (BATONRUNBACKWARDS > 0)
+      ? BATONPIXELSTART + NUMBATONPIXELS - i
+      : BATONPIXELSTART + i;
+  }
+}
+
 
 void blazingBatonStart()
 {
@@ -63,12 +76,17 @@ void prepareNewLedStates()
 void idleLedStates()
 {
   clearBatonLedStates();
+  batchColor(1, 16, colorGreen);
+  checkLedChange();
+  return;
   if (insideQuarterNoteCounter % 2 == 0)
   {
-    newState[BATONPIXELSTART] = getColorDefault();
+    // newState[BATONPIXELSTART] = getColorDefault();
+    setLedColor(1, getColorDefault());
     return;
   }
-  newState[(BATONPIXELSTART+1)] = getColorDefault();
+  //newState[(BATONPIXELSTART+1)] = getColorDefault();
+  setLedColor(2, getColorDefault());
 }
 
 /**
@@ -87,13 +105,15 @@ void clearBatonLedStates()
 void standardLedStates()
 {
   currentStepLedIndex = 0;
-  for (int i = 0; i < NUMBATONPIXELS; i++)
+  clearBatonLedStates();
+  for (int i = 1; i <= NUMBATONPIXELS; i++)
   {
-    newState[(i+BATONPIXELSTART)] = 0;
-    if (i + 1 <= insideQuarterNoteCounter % NUMBATONPIXELS || insideQuarterNoteCounter % NUMBATONPIXELS == 0)
+    // newState[(i+BATONPIXELSTART)] = 0;
+    if (i <= insideQuarterNoteCounter % NUMBATONPIXELS || insideQuarterNoteCounter % NUMBATONPIXELS == 0)
     {
-      newState[(i+BATONPIXELSTART)] = getColorDefault();
-      currentStepLedIndex = i;
+      // newState[(i+BATONPIXELSTART)] = getColorDefault();
+      setLedColor(i, getColorDefault());
+      currentStepLedIndex = i-1;
     }
   }
   sectionIndexLedStates();
@@ -123,7 +143,8 @@ void sectionIndexLedStates()
     {
       continue;
     }
-    newState[(ledIndexOfSection+BATONPIXELSTART)] = getColorSectionIndex();
+    // newState[(ledIndexOfSection+BATONPIXELSTART)] = getColorSectionIndex();
+    setLedColor(ledIndexOfSection+1, getColorSectionIndex());
   }
 }
 
@@ -134,6 +155,71 @@ void batchColor(int ledIndexFrom, int ledIndexTo, uint32_t color)
 {
   for (int i = ledIndexFrom; i <= ledIndexTo; i++)
   {
-    newState[(i - 1 + BATONPIXELSTART)] = color;
+    setLedColor(i, color);
+  }
+}
+
+
+/**
+ * NOTE: led index argument starting from 1 (but array indices starts from zero)
+ */
+void setLedColor(int ledIndex, uint32_t color)
+{
+  // Serial.print(ledIndex);
+  // Serial.print(" <- arg | index -> ");
+  // Serial.println(batonLedIndex[(ledIndex - 1)]);
+  newState[getRealBatonLedIndex(ledIndex)] = color;
+}
+
+/**
+ * NOTE: led index argument starting from 1 (but array indices starts from zero)
+ */
+uint32_t getRealBatonLedIndex(int ledIndex)
+{
+  return batonLedIndex[(ledIndex - 1)];
+}
+
+
+
+/**
+ * countdownLedStates()
+ * led state of the last 4 quarter notes of 16 bars
+ **********************************************
+ *   3   X X X X  - - X X  X X - -  X X X X
+ *   2   - - X X  X X - -  - - X X  X X - -
+ *   1   - - - -  - - X X  X X - -  - - - -
+ *  and  X X X X  X X X X  X X X X  X X X X
+ **********************************************
+ */
+void countdownLedStates()
+{
+  const int flashDuration = 23; /** time in [ticks] before turning leds off */
+
+  switch (tickCounterBatonLoop)
+  {
+  case countDownStartTick:
+    clearBatonLedStates();
+    batchColor(1, 4, getColorCountDown());
+    batchColor(7, 10, getColorCountDown());
+    batchColor(13, 16, getColorCountDown());
+    break;
+  case countDownStartTick + ppqn:
+    clearBatonLedStates();
+    batchColor(3, 6, getColorCountDown());
+    batchColor(11, 14, getColorCountDown());
+    break;
+  case countDownStartTick + 2 * ppqn:
+    clearBatonLedStates();
+    batchColor(7, 10, getColorCountDown());
+    break;
+  case countDownStartTick + 3 * ppqn:
+    batchColor(1, 16, getColorCountDown());
+    break;
+  case countDownStartTick + flashDuration:
+  case countDownStartTick + flashDuration + ppqn:
+  case countDownStartTick + flashDuration + 2 * ppqn:
+  case maxTicks - 1:
+    clearBatonLedStates();
+    break;
   }
 }
