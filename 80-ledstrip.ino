@@ -11,14 +11,15 @@
  */
 
 #include <Adafruit_NeoPixel.h>
-#define NUMPIXELS 30
+#define NUMPIXELS 36
 #define PINLEDSTRIP 7 /** input pin Neopixel is attached to */
 
-#define PIXEL_INDEX_OCTAVE_DOWN 17
-#define PIXEL_INDEX_OCTAVE_UP 18
-#define PIXEL_INDEX_VIBRATO_WAVE 19
-#define PIXEL_INDEX_GATE_OUT 20
-#define PIXEL_INDEX_HOLD 29
+#define PIXEL_INDEX_OCTAVE_DOWN 35
+#define PIXEL_INDEX_OCTAVE_UP 33
+#define PIXEL_INDEX_HOLD 5
+
+#define PIXEL_INDEX_VIBRATO_WAVE 7
+#define PIXEL_INDEX_GATE_OUT 2
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PINLEDSTRIP, NEO_GRB + NEO_KHZ800);
 
@@ -45,8 +46,10 @@ const uint32_t colorsVibrato[4] = {
 
 void setupLedstrip() {
   initStateArrays();
+  setupBlazingBaton();
   pixels.begin(); /** Initializes the NeoPixel library. */
   pixels.clear();
+  prepareNewLedStates();
 }
 
 void setLedForVibratoWave(uint8_t waveIndex) {
@@ -74,10 +77,10 @@ void setLedForCurrentOctave(int8_t octave) {
   newState[PIXEL_INDEX_OCTAVE_DOWN] = 0;
   newState[PIXEL_INDEX_OCTAVE_UP] = 0;
   switch (octave) {
-    case -2:  newState[PIXEL_INDEX_OCTAVE_DOWN] = colorRed;  break;
-    case -1:  newState[PIXEL_INDEX_OCTAVE_DOWN] = colorCyan; break;
-    case  1:  newState[PIXEL_INDEX_OCTAVE_UP] = colorCyan; break;
-    case  2:  newState[PIXEL_INDEX_OCTAVE_UP] = colorRed;  break;
+    case -2:  newState[PIXEL_INDEX_OCTAVE_DOWN] = colorMagenta; break;
+    case -1:  newState[PIXEL_INDEX_OCTAVE_DOWN] = colorCyan;    break;
+    case  1:  newState[PIXEL_INDEX_OCTAVE_UP]   = colorCyan;    break;
+    case  2:  newState[PIXEL_INDEX_OCTAVE_UP]   = colorMagenta; break;
   }
   checkLedChange();
 }

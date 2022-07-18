@@ -16,7 +16,6 @@
 #define GATE_RETRIGGER_DELAY_US 100 //time in microseconds to turn gate off in order to retrigger envelope
 
 //MIDI variables
-int8_t currentVibratoWave = 3; // sine as default
 bool currentHold = false;
 int8_t currentOctave;
 int currentMidiNote; //the note currently being played
