@@ -66,5 +66,34 @@ short leg -> Arduino Uno GND
  long leg -> resistor 220 R -> Arduino Uno pin 12
 ```
 
+## some notes for building the prototype PCB
+```
+those arduino Arduino Uno pins seems to be not changeable
+A4 + A5 to MCP23017
+2 CLOCK_INPUT_PIN (interrupts support needed)
+3 RESET_INPUT_PIN (interrupts support needed)
+10 MCP4821 CS
+11 MCP4821 SDI
+13 MCP4821 SDK
+
+
+
+any analog pin for the potentiometers
+#define VIBRATO_AMP_PIN A2
+#define VIBRATO_FREQ_PIN A1
+#define PITCH_BEND_PIN A0
+#define OCTAVE_PIN A3
+
+any digital pin for momentary switches 
+#define OCTAVE_DOWN_BUTTON_PIN 6
+#define OCTAVE_UP_BUTTON_PIN 8
+#define VIBRATO_LOOP_WAVES_BUTTON_PIN 5
+#define HOLD_BUTTON_PIN 4
+GATE_PIN 9
+7 PINLEDSTRIP 
+```
+
+
+
 see my other [eurorack DIY projects](https://github.com/othmar52/eurorack)  
 
