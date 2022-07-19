@@ -68,7 +68,7 @@ short leg -> Arduino Uno GND
 
 ## some notes for building the prototype PCB
 ```
-those arduino Arduino Uno pins seems to be not changeable
+those Arduino Uno pins seems to be not changeable
 A4 + A5 to MCP23017
 2 CLOCK_INPUT_PIN (interrupts support needed)
 3 RESET_INPUT_PIN (interrupts support needed)
@@ -92,6 +92,7 @@ any digital pin for momentary switches
 GATE_PIN 9
 7 PINLEDSTRIP 
 ```
+![image](https://user-images.githubusercontent.com/7056051/179683443-f70a029a-ec38-443d-b05b-61f431fda500.png)  
 
 
 
