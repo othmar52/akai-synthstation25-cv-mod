@@ -92,8 +92,7 @@ any digital pin for momentary switches
 GATE_PIN 9
 7 PINLEDSTRIP 
 ```
-![image](https://user-images.githubusercontent.com/7056051/179683443-f70a029a-ec38-443d-b05b-61f431fda500.png)  
-
+![image](https://user-images.githubusercontent.com/7056051/179704122-c7d96fc0-7010-42dd-930d-c13bb240c36e.png)
 
 
 see my other [eurorack DIY projects](https://github.com/othmar52/eurorack)  
