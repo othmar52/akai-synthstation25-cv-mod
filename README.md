@@ -1,6 +1,9 @@
 # AKAI Synthstation 25 CV MOD for eurorack
 How to modify the tiny [AKAI Synthstation 25 keyboard](https://www.akaipro.com/synthstation25) for usage in eurorack/control voltage.  
 
+![image](https://user-images.githubusercontent.com/7056051/180383567-9c8c9551-1a10-482e-956b-c872a2a1e06b.png)  
+
+
 ![image](https://user-images.githubusercontent.com/7056051/177115348-58fd0b93-875e-407c-8ef1-f70a4646167e.png)  
 
 ![image](https://user-images.githubusercontent.com/7056051/178199092-979addfc-fe6c-423c-9a65-7714f91269df.png)  
@@ -94,6 +97,7 @@ GATE_PIN 9
 ```
 ![image](https://user-images.githubusercontent.com/7056051/179704122-c7d96fc0-7010-42dd-930d-c13bb240c36e.png)
 
+AKAI Synthstation 25 MOD on [modulargrid.net](https://www.modulargrid.net/e/other-unknown-akai-synth-station-25-mod)  
 
 see my other [eurorack DIY projects](https://github.com/othmar52/eurorack)  
 
